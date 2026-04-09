@@ -1,0 +1,53 @@
+{
+  "response": {
+    "total": 4,
+    "dateFormat": "YYYY-MM",
+    "frequency": "monthly",
+    "data": [
+      {
+        "period": "2024-01",
+        "stateid": "CA",
+        "stateDescription": "California",
+        "sectorid": "RES",
+        "sectorName": "Residential",
+        "price": "31.52",
+        "sales": "21345.21",
+        "revenue": "672813.19",
+        "customers": "13654000"
+      },
+      {
+        "period": "2024-01",
+        "stateid": "CA",
+        "stateDescription": "California",
+        "sectorid": "COM",
+        "sectorName": "Commercial",
+        "price": "22.10",
+        "sales": "18900.00",
+        "revenue": "417690.00",
+        "customers": "2100000"
+      },
+      {
+        "period": "2024-01",
+        "stateid": "TX",
+        "stateDescription": "Texas",
+        "sectorid": "RES",
+        "sectorName": "Residential",
+        "price": "14.20",
+        "sales": "35000.00",
+        "revenue": "497000.00",
+        "customers": "11500000"
+      },
+      {
+        "period": "2024-01",
+        "stateid": "TX",
+        "stateDescription": "Texas",
+        "sectorid": "COM",
+        "sectorName": "Commercial",
+        "price": "9.80",
+        "sales": "28000.00",
+        "revenue": "274400.00",
+        "customers": "3200000"
+      }
+    ]
+  }
+}

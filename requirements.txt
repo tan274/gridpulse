@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+psycopg2-binary
+pydantic>=2.0
+pydantic-settings
+requests
+boto3
+pytest
+httpx
+pytest-mock
