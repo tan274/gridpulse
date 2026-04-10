@@ -13,11 +13,12 @@ def refresh_state_month_summary(db) -> int:
         db.query(
             RetailMetric.period,
             RetailMetric.state_id,
-            func.avg(RetailMetric.price_cents_per_kwh).label("avg_price"),
+            (func.sum(RetailMetric.revenue_thousand_usd) * 100 / func.nullif(func.sum(RetailMetric.sales_mwh), 0)).label("avg_price"),
             func.sum(RetailMetric.sales_mwh).label("total_sales"),
             func.sum(RetailMetric.revenue_thousand_usd).label("total_revenue"),
             func.sum(RetailMetric.customers_count).label("total_customers"),
         )
+        .filter(RetailMetric.sector_id != "ALL")
         .group_by(RetailMetric.period, RetailMetric.state_id)
         .all()
     )
@@ -47,7 +48,7 @@ def refresh_sector_month_summary(db) -> int:
         db.query(
             RetailMetric.period,
             RetailMetric.sector_id,
-            func.avg(RetailMetric.price_cents_per_kwh).label("avg_price"),
+            (func.sum(RetailMetric.revenue_thousand_usd) * 100 / func.nullif(func.sum(RetailMetric.sales_mwh), 0)).label("avg_price"),
             func.sum(RetailMetric.sales_mwh).label("total_sales"),
             func.sum(RetailMetric.revenue_thousand_usd).label("total_revenue"),
             func.sum(RetailMetric.customers_count).label("total_customers"),
@@ -114,8 +115,9 @@ def get_price_movers(db, end_period: str, limit: int = 10) -> list[dict]:
         start_avg = start_prices[state_id]
         if start_avg is None:
             continue
-        abs_change = end_avg - start_avg
-        pct_change = (abs_change / start_avg * 100) if start_avg != 0 else None
+        price_change = end_avg - start_avg
+        abs_change = abs(price_change)
+        pct_change = (price_change / start_avg * 100) if start_avg != 0 else None
         results.append({
             "state_id": state_id,
             "start_period": start_date.isoformat(),

@@ -1,16 +1,17 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-DATASET = "electricity/retail-sales"
+from app.constants import DATASET
 
 
-def _parse_metric(value) -> Decimal | None:
+def _parse_metric(value) -> tuple[Decimal | None, bool]:
+    """Returns (parsed_value, failed). failed=True means value was present but unparseable."""
     if value is None:
-        return None
+        return None, False
     try:
-        return Decimal(str(value))
+        return Decimal(str(value)), False
     except (InvalidOperation, ValueError):
-        return None
+        return None, True
 
 
 def normalize_retail_row(raw_row: dict) -> tuple[dict | None, list[dict]]:
@@ -58,10 +59,23 @@ def normalize_retail_row(raw_row: dict) -> tuple[dict | None, list[dict]]:
         })
         return None, issues
 
-    price = _parse_metric(raw_row.get("price"))
-    sales = _parse_metric(raw_row.get("sales"))
-    revenue = _parse_metric(raw_row.get("revenue"))
-    customers = _parse_metric(raw_row.get("customers"))
+    price, price_failed = _parse_metric(raw_row.get("price"))
+    sales, sales_failed = _parse_metric(raw_row.get("sales"))
+    revenue, revenue_failed = _parse_metric(raw_row.get("revenue"))
+    customers, customers_failed = _parse_metric(raw_row.get("customers"))
+
+    for raw_key, failed in [
+        ("price", price_failed),
+        ("sales", sales_failed),
+        ("revenue", revenue_failed),
+        ("customers", customers_failed),
+    ]:
+        if failed:
+            issues.append({
+                "issue_type": "invalid_numeric_value",
+                "severity": "warning",
+                "issue_message": f"Unparseable value for '{raw_key}': {raw_row.get(raw_key)!r}",
+            })
 
     if all(v is None for v in [price, sales, revenue, customers]):
         issues.append({

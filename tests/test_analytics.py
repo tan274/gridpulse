@@ -105,16 +105,20 @@ def test_sector_summary_rows_generated(db):
 
 
 def test_state_summary_average_price(db):
-    """avg_price_cents_per_kwh averages across all sectors for a (period, state)."""
+    """avg_price is revenue-weighted: sum(revenue)*100 / sum(sales), not a simple avg.
+    RES: revenue=100, sales=1000 → implied 10 cents/kwh
+    COM: revenue=200, sales=500  → implied 40 cents/kwh
+    Weighted: (100+200)*100 / (1000+500) = 20  (simple avg would be 25)
+    """
     run = _make_run(db)
     raw = _make_raw_row(db, run.id)
-    _make_metric(db, run.id, raw.id, period=date(2024, 1, 1), state_id="CA", sector_id="RES", price=10)
-    _make_metric(db, run.id, raw.id, period=date(2024, 1, 1), state_id="CA", sector_id="COM", price=20)
+    _make_metric(db, run.id, raw.id, period=date(2024, 1, 1), state_id="CA", sector_id="RES", revenue=100, sales=1000)
+    _make_metric(db, run.id, raw.id, period=date(2024, 1, 1), state_id="CA", sector_id="COM", revenue=200, sales=500)
 
     refresh_state_month_summary(db)
 
     summary = db.query(StateMonthSummary).filter_by(state_id="CA", period=date(2024, 1, 1)).one()
-    assert summary.avg_price_cents_per_kwh == Decimal("15")
+    assert summary.avg_price_cents_per_kwh == Decimal("20")
 
 
 def test_state_summary_total_sales(db):
@@ -161,6 +165,45 @@ def test_state_summary_refresh_replaces_stale(db):
     refreshed = db.query(StateMonthSummary).filter_by(state_id="CA").one()
     assert refreshed.total_sales_mwh == Decimal("999")
     assert db.query(StateMonthSummary).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# ALL sector handling tests
+# ---------------------------------------------------------------------------
+
+def test_state_summary_excludes_all_sector(db):
+    """ALL sector row must not inflate state totals — it is a pre-aggregated duplicate."""
+    run = _make_run(db)
+    raw_res = _make_raw_row(db, run.id, sector_id="RES")
+    raw_all = _make_raw_row(db, run.id, sector_id="ALL", source_hash="raw-CA-ALL")
+    _make_metric(db, run.id, raw_res.id, period=date(2024, 1, 1), state_id="CA", sector_id="RES",
+                 revenue=100, sales=1000, source_hash="metric-CA-RES")
+    # ALL row has the same totals — would double total_sales if included
+    _make_metric(db, run.id, raw_all.id, period=date(2024, 1, 1), state_id="CA", sector_id="ALL",
+                 revenue=100, sales=1000, source_hash="metric-CA-ALL")
+
+    refresh_state_month_summary(db)
+
+    summary = db.query(StateMonthSummary).filter_by(state_id="CA", period=date(2024, 1, 1)).one()
+    assert summary.total_sales_mwh == Decimal("1000")
+    assert summary.total_revenue_thousand_usd == Decimal("100")
+
+
+def test_sector_summary_preserves_all_sector(db):
+    """ALL is kept as its own bucket in sector_month_summary — no double-count risk there."""
+    run = _make_run(db)
+    raw_res = _make_raw_row(db, run.id, sector_id="RES")
+    raw_all = _make_raw_row(db, run.id, sector_id="ALL", source_hash="raw-ALL-bucket")
+    _make_metric(db, run.id, raw_res.id, period=date(2024, 1, 1), state_id="CA", sector_id="RES",
+                 revenue=100, sales=1000, source_hash="metric-sec-RES")
+    _make_metric(db, run.id, raw_all.id, period=date(2024, 1, 1), state_id="CA", sector_id="ALL",
+                 revenue=100, sales=1000, source_hash="metric-sec-ALL")
+
+    refresh_sector_month_summary(db)
+
+    sector_ids = {r.sector_id for r in db.query(SectorMonthSummary).all()}
+    assert "ALL" in sector_ids
+    assert "RES" in sector_ids
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +289,21 @@ def test_price_movers_percent_change(db):
     assert movers[0]["end_avg_price_cents_per_kwh"] == Decimal("12")
     assert movers[0]["absolute_change"] == Decimal("2")
     assert movers[0]["percent_change"] == Decimal("20")
+
+
+def test_price_movers_ranks_by_absolute_change_includes_drops(db):
+    """A large price drop must rank above a small increase — sort is by abs(), not signed."""
+    end = date(2024, 1, 1)
+    _seed_price_movers(db, state_id="CA", end_period=end, end_price=12, prior_price=10)   # +2
+    _seed_price_movers(db, state_id="TX", end_period=end, end_price=3,  prior_price=10)   # -7
+    _seed_price_movers(db, state_id="NY", end_period=end, end_price=15, prior_price=10)   # +5
+
+    movers = get_price_movers(db, end_period="2024-01")
+
+    assert [m["state_id"] for m in movers] == ["TX", "NY", "CA"]
+    assert movers[0]["absolute_change"] == Decimal("7")
+    assert movers[1]["absolute_change"] == Decimal("5")
+    assert movers[2]["absolute_change"] == Decimal("2")
 
 
 def test_price_movers_only_uses_res_sector(db):

@@ -79,6 +79,55 @@ def test_ingest_run_invalid_mode_returns_422(client):
     assert resp.status_code == 422
 
 
+def test_ingest_run_invalid_start_period_returns_422(client):
+    resp = client.post("/api/ingest/run", json={
+        "mode": "backfill",
+        "start_period": "garbage",
+        "end_period": "2024-01",
+    })
+    assert resp.status_code == 422
+
+
+def test_ingest_run_invalid_end_period_returns_422(client):
+    resp = client.post("/api/ingest/run", json={
+        "mode": "backfill",
+        "start_period": "2024-01",
+        "end_period": "2024-99",
+    })
+    assert resp.status_code == 422
+
+
+def test_ingest_run_start_after_end_returns_422(client):
+    resp = client.post("/api/ingest/run", json={
+        "mode": "backfill",
+        "start_period": "2024-06",
+        "end_period": "2024-01",
+    })
+    assert resp.status_code == 422
+
+
+def test_ingest_run_non_zero_padded_month_returns_422(client):
+    """'2024-1' must be rejected — only zero-padded YYYY-MM is accepted."""
+    resp = client.post("/api/ingest/run", json={
+        "mode": "backfill",
+        "start_period": "2024-1",
+        "end_period": "2024-03",
+    })
+    assert resp.status_code == 422
+
+
+def test_invalid_ingest_input_creates_no_run_row(client, db):
+    """Invalid input must return 422 before any DB work — no IngestRun row should exist."""
+    resp = client.post("/api/ingest/run", json={
+        "mode": "backfill",
+        "start_period": "garbage",
+        "end_period": "2024-01",
+    })
+    assert resp.status_code == 422
+    from app.models import IngestRun
+    assert db.query(IngestRun).count() == 0
+
+
 def test_list_ingest_runs(client, mock_ingest_deps):
     client.post("/api/ingest/run", json={
         "mode": "backfill",

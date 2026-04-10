@@ -3,10 +3,9 @@ import json
 from datetime import datetime, timedelta
 
 from app.config import settings
+from app.constants import DATASET
 from app.models import IngestRun, QualityIssue, RawRetailRow, RetailMetric
 from app.services import analytics, eia_client, normalizer, quality, s3_archive
-
-DATASET = "electricity/retail-sales"
 
 
 def compute_source_hash(row: dict) -> str:

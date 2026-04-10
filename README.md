@@ -1,16 +1,19 @@
 # GridPulse
 
-GridPulse is a data pipeline that fetches U.S. retail electricity sales data from the EIA API, archives raw payloads to S3, normalizes the data into PostgreSQL, runs quality checks, and exposes the results through a FastAPI REST API.
+![CI](https://github.com/tan274/gridpulse/actions/workflows/ci.yml/badge.svg)
+
+GridPulse is a data pipeline that fetches U.S. retail electricity sales data from the EIA API, archives raw payloads to S3, normalizes the data into PostgreSQL, runs quality checks, builds state and sector summary tables, and exposes the results through a FastAPI REST API.
 
 ---
 
 ## What it does
 
-- Fetches monthly retail electricity data (prices, sales, revenue by state and sector) from the EIA `electricity/retail-sales` dataset
+- Fetches monthly retail electricity data (price, sales, revenue, customers) from the EIA `electricity/retail-sales` dataset
 - Supports two ingestion modes: **latest** (most recent fully completed month) and **backfill** (a specified date range)
-- Archives raw API responses as JSON to S3 before any transformation
-- Normalizes rows into a canonical facts table, deduplicating by `(dataset, period, state_id, sector_id)`
-- Runs quality checks after each ingestion and stores flagged issues
+- Rejects invalid backfill period input before creating an ingestion run
+- Archives raw API responses to S3 before any transformation
+- Persists deduplicated raw rows and upserts canonical fact rows by `(dataset, period, state_id, sector_id)`
+- Runs quality checks after each ingestion, including flagging invalid numeric source values
 - Refreshes state-month and sector-month summary tables after each run
 - Exposes analytics and quality data via a REST API
 
@@ -20,6 +23,7 @@ GridPulse is a data pipeline that fetches U.S. retail electricity sales data fro
 
 ```
 EIA API
+  -> validate request input
   -> resolve run mode (latest or backfill)
   -> create ingest run record in DB (to get a run ID)
   -> fetch monthly retail-sales rows from EIA
@@ -135,6 +139,24 @@ curl -X POST http://localhost:8000/api/ingest/run \
   -d '{"mode": "backfill", "start_period": "2025-01", "end_period": "2025-03"}'
 ```
 
+Example response:
+
+```json
+{
+  "run_id": 2,
+  "status": "success",
+  "run_mode": "backfill",
+  "start_period": "2025-01",
+  "end_period": "2025-03",
+  "row_count_raw": 1116,
+  "row_count_skipped_raw": 0,
+  "row_count_normalized": 930,
+  "row_count_inserted": 930,
+  "row_count_updated": 0,
+  "quality_issue_count": 186
+}
+```
+
 ### Check ingestion runs
 
 ```bash
@@ -167,6 +189,22 @@ curl http://localhost:8000/api/quality/report
 
 ---
 
+## Testing
+
+```bash
+pytest
+```
+
+The test suite covers:
+
+- Ingestion flow (fetch, archive, dedup, upsert, failure handling)
+- API request validation (period format, mode, ordering)
+- Normalization and quality checks (missing fields, invalid numerics, negative values)
+- Summary table refresh logic
+- Analytics endpoints (price movers, top states, state and sector summaries)
+
+---
+
 ## Deployment Overview
 
 The intended deployment target is a single EC2 instance running Docker Compose.
@@ -181,3 +219,7 @@ The intended deployment target is a single EC2 instance running Docker Compose.
 8. Verify with `curl http://localhost:8000/health`
 
 The `db_data` Docker volume persists the database across container restarts.
+
+### CI/CD
+
+Every push to `master` automatically runs the test suite and, if tests pass, deploys to EC2 via GitHub Actions. The deploy job SSHes into the instance, pulls the latest code, rebuilds the container, runs migrations, and verifies the `/health` endpoint before finishing. See `.github/workflows/ci.yml` for the full pipeline.
