@@ -119,6 +119,8 @@ curl http://localhost:8000/health
 
 ## Demo Flow
 
+With the app running, interactive API docs are available at `/docs`.
+
 With the app running locally:
 
 ### Run a latest-mode ingestion
