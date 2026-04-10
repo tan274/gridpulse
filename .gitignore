@@ -9,3 +9,7 @@ build/
 *.egg-info/
 .venv/
 venv/
+
+CLAUDE.md
+CONTINUITY.md
+GRIDPULSE_BUILD_PLAN_v5.md
