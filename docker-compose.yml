@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:15
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -17,6 +18,7 @@ services:
 
   app:
     build: .
+    restart: always
     env_file: .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/gridpulse
