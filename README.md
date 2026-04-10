@@ -119,16 +119,16 @@ curl http://localhost:8000/health
 
 ## Demo Flow
 
-With the app running, interactive API docs are available at `/docs`.
+**Live API:** http://52.7.197.207:8000/docs
 
-With the app running locally:
+The examples below use the live API. Replace the host with `localhost:8000` to run locally.
 
 ### Run a latest-mode ingestion
 
 Fetches the most recent fully completed calendar month.
 
 ```bash
-curl -X POST http://localhost:8000/api/ingest/run \
+curl -X POST http://52.7.197.207:8000/api/ingest/run \
   -H "Content-Type: application/json" \
   -d '{"mode": "latest"}'
 ```
@@ -136,7 +136,7 @@ curl -X POST http://localhost:8000/api/ingest/run \
 ### Run a backfill
 
 ```bash
-curl -X POST http://localhost:8000/api/ingest/run \
+curl -X POST http://52.7.197.207:8000/api/ingest/run \
   -H "Content-Type: application/json" \
   -d '{"mode": "backfill", "start_period": "2025-01", "end_period": "2025-03"}'
 ```
@@ -162,31 +162,31 @@ Example response:
 ### Check ingestion runs
 
 ```bash
-curl http://localhost:8000/api/ingest/runs
+curl http://52.7.197.207:8000/api/ingest/runs
 ```
 
 ### Query state-month summaries
 
 ```bash
-curl http://localhost:8000/api/analytics/state-summary
+curl http://52.7.197.207:8000/api/analytics/state-summary
 ```
 
 ### Top states by average price for a given month
 
 ```bash
-curl "http://localhost:8000/api/analytics/top-states?period=2025-03&metric=avg_price_cents_per_kwh"
+curl "http://52.7.197.207:8000/api/analytics/top-states?period=2025-03&metric=avg_price_cents_per_kwh"
 ```
 
 ### Query price movers
 
 ```bash
-curl "http://localhost:8000/api/analytics/price-movers?end_period=2025-03"
+curl "http://52.7.197.207:8000/api/analytics/price-movers?end_period=2025-03"
 ```
 
 ### Check the quality report
 
 ```bash
-curl http://localhost:8000/api/quality/report
+curl http://52.7.197.207:8000/api/quality/report
 ```
 
 ---
